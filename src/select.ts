@@ -73,44 +73,39 @@ export async function select (stream: Duplex<any>, protocols: string | string[],
 export function lazySelect (stream: Duplex<Uint8Array>, protocol: string): ProtocolStream<Uint8Array> {
   // This is a signal to write the multistream headers if the consumer tries to
   // read from the source
-  const readPusher = pushable()
+  const negotiateTrigger = pushable()
+  let negotiated = false
   return {
     stream: {
       // eslint-disable-next-line @typescript-eslint/promise-function-async
-      sink: source => {
-        return stream.sink((async function * () {
-          let first = true
-          for await (const chunk of merge(source, readPusher)) {
-            if (first) {
-              const p1 = uint8ArrayFromString(PROTOCOL_ID)
-              const p2 = uint8ArrayFromString(protocol)
-              const list = new Uint8ArrayList(multistream.encode(p1), multistream.encode(p2))
-              if (chunk.length !== 0) { // chunk will be zero length if from the pushable
-                list.append(chunk)
-              }
-              yield list.slice()
-              first = false
-            }
+      sink: source => stream.sink((async function * () {
+        let first = true
+        for await (const chunk of merge(source, negotiateTrigger)) {
+          if (first) {
+            first = false
+            negotiated = true
+            const p1 = uint8ArrayFromString(PROTOCOL_ID)
+            const p2 = uint8ArrayFromString(protocol)
+            const list = new Uint8ArrayList(multistream.encode(p1), multistream.encode(p2))
+            if (chunk.length > 0) list.append(chunk)
+            yield list.slice()
+          } else {
             yield chunk
           }
-        })())
-      },
+        }
+      })()),
       source: (async function * () {
-        readPusher.push(new Uint8Array())
-        try {
-          const byteReader = reader(stream.source)
-          let response = await multistream.readString(byteReader)
-          if (response === PROTOCOL_ID) {
-            response = await multistream.readString(byteReader)
-          }
-          if (response !== protocol) {
-            throw errCode(new Error('protocol selection failed'), 'ERR_UNSUPPORTED_PROTOCOL')
-          }
-          for await (const chunk of byteReader) {
-            yield chunk.slice()
-          }
-        } catch (err) {
-          if (err.code !== 'ERR_UNDER_READ') throw err
+        if (!negotiated) negotiateTrigger.push(new Uint8Array())
+        const byteReader = reader(stream.source)
+        let response = await multistream.readString(byteReader)
+        if (response === PROTOCOL_ID) {
+          response = await multistream.readString(byteReader)
+        }
+        if (response !== protocol) {
+          throw errCode(new Error('protocol selection failed'), 'ERR_UNSUPPORTED_PROTOCOL')
+        }
+        for await (const chunk of byteReader) {
+          yield chunk.slice()
         }
       })()
     },
