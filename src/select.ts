@@ -70,7 +70,9 @@ export async function select (stream: Duplex<any>, protocols: string | string[],
  *
  * Use when it is known that the receiver supports the desired protocol.
  */
-export function lazySelect (stream: Duplex<Uint8Array>, protocol: string): ProtocolStream<Uint8Array> {
+export function lazySelect (stream: Duplex<Uint8Array>, protocol: string): ProtocolStream<Uint8Array>
+export function lazySelect (stream: Duplex<Uint8ArrayList, Uint8ArrayList | Uint8Array>, protocol: string): ProtocolStream<Uint8ArrayList, Uint8ArrayList | Uint8Array>
+export function lazySelect (stream: Duplex<any>, protocol: string): ProtocolStream<any> {
   // This is a signal to write the multistream headers if the consumer tries to
   // read from the source
   const negotiateTrigger = pushable()
@@ -84,6 +86,7 @@ export function lazySelect (stream: Duplex<Uint8Array>, protocol: string): Proto
           if (first) {
             first = false
             negotiated = true
+            negotiateTrigger.end()
             const p1 = uint8ArrayFromString(PROTOCOL_ID)
             const p2 = uint8ArrayFromString(protocol)
             const list = new Uint8ArrayList(multistream.encode(p1), multistream.encode(p2))
