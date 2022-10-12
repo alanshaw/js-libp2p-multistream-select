@@ -116,10 +116,10 @@ describe('Dialer and Listener integration', () => {
     // The error message from this varies depending on how much data got
     // written when the dialer receives the `na` response and closes the
     // stream, so we just assert that this rejects.
-    await expect(mss.handle(pair[1], '/unhandled/1.0.0')).to.be.rejected()
+    await expect(mss.handle(pair[1], '/unhandled/1.0.0')).to.eventually.be.rejected()
 
-    const dialerErr = await expect(dialerResultPromise).to.be.rejected()
     // Dialer should fail to negotiate the single protocol
-    expect(dialerErr.code).to.eql('ERR_UNSUPPORTED_PROTOCOL')
+    await expect(dialerResultPromise).to.eventually.be.rejected()
+      .with.property('code', 'ERR_UNSUPPORTED_PROTOCOL')
   })
 })

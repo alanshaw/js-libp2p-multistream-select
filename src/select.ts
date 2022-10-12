@@ -79,8 +79,7 @@ export function lazySelect (stream: Duplex<any>, protocol: string): ProtocolStre
   let negotiated = false
   return {
     stream: {
-      // eslint-disable-next-line @typescript-eslint/promise-function-async
-      sink: source => stream.sink((async function * () {
+      sink: async source => await stream.sink((async function * () {
         let first = true
         for await (const chunk of merge(source, negotiateTrigger)) {
           if (first) {
@@ -91,7 +90,7 @@ export function lazySelect (stream: Duplex<any>, protocol: string): ProtocolStre
             const p2 = uint8ArrayFromString(protocol)
             const list = new Uint8ArrayList(multistream.encode(p1), multistream.encode(p2))
             if (chunk.length > 0) list.append(chunk)
-            yield list.slice()
+            yield * list
           } else {
             yield chunk
           }
@@ -108,7 +107,7 @@ export function lazySelect (stream: Duplex<any>, protocol: string): ProtocolStre
           throw errCode(new Error('protocol selection failed'), 'ERR_UNSUPPORTED_PROTOCOL')
         }
         for await (const chunk of byteReader) {
-          yield chunk.slice()
+          yield * chunk
         }
       })()
     },
